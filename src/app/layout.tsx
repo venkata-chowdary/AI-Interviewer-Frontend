@@ -1,7 +1,8 @@
 import "@/app/globals.css";
 import { Inter } from "next/font/google";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { AppLayout } from "@/components/layout/AppLayout";
 import Providers from "@/components/layout/Providers"; // We'll create this next for React Query
+import { AuthProvider } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,12 +20,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} bg-[#fcfcfc] text-foreground antialiased`}>
         <Providers>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto px-8 py-10 selection:bg-primary/20">
+          <AuthProvider>
+            <AppLayout>
               {children}
-            </main>
-          </div>
+            </AppLayout>
+          </AuthProvider>
         </Providers>
       </body>
     </html>

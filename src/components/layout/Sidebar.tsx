@@ -8,9 +8,13 @@ import {
   Home,
   MessageSquare,
   Settings,
-  Sparkles
+  Sparkles,
+  LogOut,
+  LogIn,
+  UserCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -21,6 +25,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border/50 bg-white shadow-[1px_0_12px_rgb(0,0,0,0.02)]">
@@ -64,14 +69,41 @@ export function Sidebar() {
       </nav>
 
       {/* Footer / Settings */}
-      <div className="flex flex-shrink-0 border-t border-border/50 p-4">
+      <div className="flex flex-col flex-shrink-0 border-t border-border/50 p-4 gap-2">
+        {user ? (
+          <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground bg-primary/5 border border-primary/10">
+            <UserCircle className="h-6 w-6 text-primary" />
+            <div className="flex flex-col overflow-hidden">
+              <span className="font-semibold truncate text-xs">{user.email}</span>
+            </div>
+          </div>
+        ) : null}
+
         <Link
           href="/settings"
-          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary/50 hover:text-foreground"
+          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary/50 hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           Settings
         </Link>
+
+        {user ? (
+          <button
+            onClick={logout}
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-destructive/10 hover:text-destructive text-left"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign Out
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+          >
+            <LogIn className="h-4 w-4" />
+            Sign In
+          </Link>
+        )}
       </div>
     </div>
   );

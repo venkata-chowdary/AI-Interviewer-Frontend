@@ -41,7 +41,7 @@ export default function SettingsPage() {
                             Account Settings
                         </h1>
                         <p className="mt-2 text-lg text-muted-foreground max-w-xl">
-                            Manage your public profile, interview preferences, and integration settings to personalize your experience.
+                            Manage your profile, interview preferences, and account settings.
                         </p>
                     </div>
                     <Button className="rounded-xl px-8 shadow-lg shadow-primary/20 h-12 text-base">
@@ -171,7 +171,7 @@ export default function SettingsPage() {
                         <CardHeader className="pb-6">
                             <CardTitle className="text-xl">AI Interview Engine</CardTitle>
                             <CardDescription>
-                                Customize how the AI evaluates and interacts with you during mock sessions.
+                                Customize how you are evaluated during mock interviews.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -180,7 +180,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Strict Mode Evaluation</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        The AI grader will be significantly harsher on edge cases, system design flaws, and performance considerations. Recommended for Senior roles.
+                                        Get evaluated more strictly on edge cases, system design, and performance. Recommended for senior roles.
                                     </p>
                                 </div>
                                 <Switch className="data-[state=checked]:bg-primary" />
@@ -190,7 +190,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Mock Pressure Mode</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        The interviewer will ask follow-up questions rapidly and challenge your assumptions to simulate a high-stress FAANG interview.
+                                        Experience rapid follow-up questions and challenged assumptions to simulate high-stress interviews.
                                     </p>
                                 </div>
                                 <Switch />
@@ -200,7 +200,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Timer Visibility</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Show the countdown timer persistently during active interview sessions. Turning this off can reduce anxiety.
+                                        Show the countdown timer during interviews. Turn off to reduce pressure.
                                     </p>
                                 </div>
                                 <Switch defaultChecked className="data-[state=checked]:bg-primary" />
@@ -216,7 +216,7 @@ export default function SettingsPage() {
                         <CardHeader className="pb-6">
                             <CardTitle className="text-xl">Communication Settings</CardTitle>
                             <CardDescription>
-                                Manage what we send to your inbox. We promise not to spam.
+                                Manage your email notifications.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -225,7 +225,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Weekly Summary</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Receive a consolidated Friday digest of your interview performance, tracked progression, and newly uploaded resume analytics.
+                                        Get a weekly digest of your interview performance and progress.
                                     </p>
                                 </div>
                                 <Switch defaultChecked className="data-[state=checked]:bg-primary" />
@@ -235,7 +235,7 @@ export default function SettingsPage() {
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Study Plan Reminders</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        We'll email you scheduled nudges based on your AI-generated study plans to keep your learning on track.
+                                        Get email reminders for your study plans to stay on track.
                                     </p>
                                 </div>
                                 <Switch defaultChecked className="data-[state=checked]:bg-primary" />

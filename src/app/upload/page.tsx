@@ -86,7 +86,7 @@ export default function UploadPage() {
                     Upload Your Resume
                 </h1>
                 <p className="mt-2 text-muted-foreground">
-                    Our AI will extract your skills to customize your technical interview.
+                    Upload your resume to get a personalized interview tailored to your experience.
                 </p>
             </header>
 

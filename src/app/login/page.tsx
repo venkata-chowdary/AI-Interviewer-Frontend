@@ -66,7 +66,7 @@ export default function LoginPage() {
                 <Card className="border-border/50 shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle>Sign In</CardTitle>
-                        <CardDescription>Enter your email and password to access your account.</CardDescription>
+                        <CardDescription>Enter your email and password to sign in.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-5">

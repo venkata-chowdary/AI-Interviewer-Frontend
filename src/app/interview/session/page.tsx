@@ -16,7 +16,6 @@ export default function InterviewSessionPage() {
         if (!answer.trim()) return;
 
         setIsSubmitting(true);
-        // Simulate API call and evaluation
         setTimeout(() => {
             setIsSubmitting(false);
             setFeedback("Good understanding of the caching strategy. You correctly identified cache invalidation as a key challenge. However, you could improve by mentioning specific eviction policies like LRU or LFU.");

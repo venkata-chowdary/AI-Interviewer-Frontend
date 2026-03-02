@@ -41,7 +41,7 @@ export default function ReportPage({ params }: { params: { id: string } }) {
                         <span className="text-sm text-muted-foreground">Today at 2:00 PM</span>
                     </div>
                     <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                        Backend Engineering Assesment
+                        Backend Engineering Assessment
                     </h1>
                 </div>
 
@@ -162,11 +162,11 @@ export default function ReportPage({ params }: { params: { id: string } }) {
                             <ul className="space-y-2 text-muted-foreground text-sm">
                                 <li className="flex items-start gap-2">
                                     <span className="text-destructive mt-0.5">•</span>
-                                    Struggled with trade-offs in distributed systems (CAP theorem applications).
+                                    Review trade-offs in distributed systems (CAP theorem).
                                 </li>
                                 <li className="flex items-start gap-2">
                                     <span className="text-destructive mt-0.5">•</span>
-                                    Needs deeper understanding of specific caching eviction policies under load.
+                                    Review caching eviction policies under load.
                                 </li>
                             </ul>
                         </div>
@@ -187,14 +187,14 @@ export default function ReportPage({ params }: { params: { id: string } }) {
                                 <div className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-primary" />
                                 <h4 className="font-medium text-foreground">Deep dive: Redis Eviction Strategies</h4>
                                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                                    Review differences between LRU, LFU, and volatile vs. allkeys policies. Read Redis documentation on memory management.
+                                    Study LRU, LFU, and Redis memory management.
                                 </p>
                             </li>
                             <li className="relative pl-6">
                                 <div className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-primary" />
                                 <h4 className="font-medium text-foreground">Practice System Design</h4>
                                 <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                                    Focus on designing high-throughput systems. Study rate limiting, load balancer algorithms, and database sharding techniques.
+                                    Practice designing high-throughput systems, rate limiting, and database sharding.
                                 </p>
                             </li>
                         </ul>

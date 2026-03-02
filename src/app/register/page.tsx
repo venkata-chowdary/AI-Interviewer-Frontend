@@ -59,13 +59,13 @@ export default function RegisterPage() {
                         <Sparkles className="h-7 w-7" />
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Create Account</h1>
-                    <p className="text-muted-foreground">Start your journey to interview mastery</p>
+                    <p className="text-muted-foreground">Start your interview prep journey</p>
                 </div>
 
                 <Card className="border-border/50 shadow-xl shadow-black/5 bg-white/50 backdrop-blur-sm">
                     <CardHeader>
                         <CardTitle>Sign Up</CardTitle>
-                        <CardDescription>Enter your details below to create your account.</CardDescription>
+                        <CardDescription>Enter your details to create an account.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-5">

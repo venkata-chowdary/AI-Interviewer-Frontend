@@ -4,9 +4,17 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, Code, FileText, Target, Loader2, AlertCircle } from "lucide-react";
+import { ArrowRight, Brain, Code, FileText, Target, Loader2, AlertCircle, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ResumeData {
     skills: string;
@@ -20,6 +28,7 @@ export default function DashboardPage() {
     const { user, token, isLoading: authLoading, logout } = useAuth();
     const [resumeData, setResumeData] = useState<ResumeData | null>(null);
     const [resumeLoading, setResumeLoading] = useState(true);
+    const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 
     useEffect(() => {
         if (!user || !token) {
@@ -41,7 +50,10 @@ export default function DashboardPage() {
                 } else if (response.status === 401) {
                     // Token has expired or is invalid
                     logout();
-                } else if (response.status !== 404) {
+                } else if (response.status === 404) {
+                    // No resume found, show the welcome popup
+                    setShowWelcomePopup(true);
+                } else {
                     console.error("Failed to fetch resume:", await response.text());
                 }
             } catch (err) {
@@ -111,7 +123,7 @@ export default function DashboardPage() {
                                 <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
                                 <h3 className="text-lg font-medium">No Resume Found</h3>
                                 <p className="text-sm text-muted-foreground max-w-sm mt-1 mb-6">
-                                    Upload your resume to let our AI build your technical profile and customize your interviews.
+                                    Upload your resume to build your profile and get custom interviews.
                                 </p>
                                 <Button asChild variant="outline">
                                     <Link href="/upload">Upload Resume</Link>
@@ -214,6 +226,37 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Welcome / First-Time Login Popup */}
+            <Dialog open={showWelcomePopup} onOpenChange={setShowWelcomePopup}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl flex items-center gap-2">
+                            <Brain className="h-5 w-5 text-primary" />
+                            Welcome to AI Interviewer
+                        </DialogTitle>
+                        <DialogDescription className="pt-3 pb-2 text-base">
+                            You haven't uploaded a resume yet. Upload one to get interviews tailored to your experience.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border/60 rounded-xl bg-secondary/10 mb-4">
+                        <UploadCloud className="h-10 w-10 text-muted-foreground mb-3" />
+                        <p className="text-sm font-medium text-center">
+                            Upload your resume to unlock custom interviews.
+                        </p>
+                    </div>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2">
+                        <Button variant="outline" onClick={() => setShowWelcomePopup(false)} className="w-full sm:w-auto">
+                            Remind me later
+                        </Button>
+                        <Button asChild className="w-full sm:w-auto">
+                            <Link href="/upload">
+                                Upload Resume Now
+                            </Link>
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

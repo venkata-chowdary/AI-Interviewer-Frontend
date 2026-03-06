@@ -85,7 +85,7 @@ export default function StartInterviewPage() {
             const payload = {
                 resume_id: selectedResumeId,
                 role: role,
-                difficulty: difficulty,
+                difficulty_level: difficulty,
                 duration: parseInt(duration)
             };
 

@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpRight, TrendingUp, Calendar, Target, Activity } from "lucide-react";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import {
     AreaChart,
     Area,
@@ -39,14 +41,101 @@ const skillData = [
     { subject: "Algorithms", A: 65, fullMark: 100 },
 ];
 
-// Mock recent interviews
-const recentInterviews = [
-    { id: "1", role: "Backend Engineer", date: "Today", score: 74, status: "completed" },
-    { id: "2", role: "System Architecture", date: "Feb 15", score: 68, status: "completed" },
-    { id: "3", role: "Full Stack (Backend heavy)", date: "Feb 02", score: 70, status: "completed" },
-];
+interface RecentInterview {
+    id: string;
+    role: string;
+    difficulty_level: string;
+    status: string;
+    score: number | null;
+    selected_status: string | null;
+    time_taken: number | null;
+    created_at: string;
+    questions_total: number;
+    questions_answered: number;
+    progress_percent: number;
+}
 
 export default function AnalyticsDashboardPage() {
+    const { token, user, logout } = useAuth();
+    const [recentInterviews, setRecentInterviews] = useState<RecentInterview[]>([]);
+    const [isRecentLoading, setIsRecentLoading] = useState(true);
+    const [recentError, setRecentError] = useState<string | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+    useEffect(() => {
+        if (!token || !user) {
+            setIsRecentLoading(false);
+            return;
+        }
+
+        let isMounted = true;
+
+        const fetchRecentInterviews = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/api/interviews/recent?limit=10", {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    cache: "no-store"
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch recent interviews.");
+                }
+
+                const data: RecentInterview[] = await response.json();
+                if (isMounted) {
+                    setRecentInterviews(data);
+                    setRecentError(null);
+                    setLastUpdated(new Date());
+                }
+            } catch (error) {
+                if (isMounted) {
+                    setRecentError(error instanceof Error ? error.message : "Network error while loading recent interviews.");
+                }
+            } finally {
+                if (isMounted) {
+                    setIsRecentLoading(false);
+                }
+            }
+        };
+
+        fetchRecentInterviews();
+        const intervalId = setInterval(fetchRecentInterviews, 5000);
+
+        return () => {
+            isMounted = false;
+            clearInterval(intervalId);
+        };
+    }, [token, user, logout]);
+
+    const formatCreatedAt = (isoDate: string) =>
+        new Date(isoDate).toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit"
+        });
+
+    const formatTimeTaken = (seconds: number | null) => {
+        if (seconds == null) return "--";
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}m ${secs}s`;
+    };
+
+    const getStatusBadgeClass = (status: string) => {
+        if (status === "completed") return "bg-green-500/10 text-green-700 border-green-500/20";
+        if (status === "under_evaluation") return "bg-amber-500/10 text-amber-700 border-amber-500/20";
+        if (status === "failed_evaluation") return "bg-destructive/10 text-destructive border-destructive/20";
+        return "bg-blue-500/10 text-blue-700 border-blue-500/20";
+    };
+
     return (
         <div className="mx-auto max-w-6xl space-y-10 animate-in fade-in duration-700">
 
@@ -212,46 +301,80 @@ export default function AnalyticsDashboardPage() {
             <div>
                 <div className="flex items-center justify-between mb-6 border-b border-border/40 pb-4">
                     <h2 className="text-xl font-semibold tracking-tight">Recent Interviews</h2>
+                    <p className="text-xs text-muted-foreground">
+                        {lastUpdated ? `Live refresh (5s) • Updated ${lastUpdated.toLocaleTimeString()}` : "Live refresh (5s)"}
+                    </p>
                 </div>
 
                 <div className="grid gap-4">
-                    {recentInterviews.map((interview) => (
-                        <Link key={interview.id} href={`/reports/${interview.id}`}>
-                            <Card className="premium-card hover:bg-secondary/20 transition-colors group cursor-pointer border-transparent hover:border-border/60">
-                                <CardContent className="p-5 flex items-center justify-between">
-                                    <div className="flex items-center gap-5">
-                                        <div className="h-12 w-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                                            <Calendar className="h-5 w-5" />
+                    {isRecentLoading ? (
+                        <Card className="premium-card">
+                            <CardContent className="p-5 text-sm text-muted-foreground">Loading recent interviews...</CardContent>
+                        </Card>
+                    ) : recentError ? (
+                        <Card className="premium-card">
+                            <CardContent className="p-5 text-sm text-destructive">{recentError}</CardContent>
+                        </Card>
+                    ) : recentInterviews.length === 0 ? (
+                        <Card className="premium-card">
+                            <CardContent className="p-5 text-sm text-muted-foreground">No interviews found yet. Start one to see live history here.</CardContent>
+                        </Card>
+                    ) : (
+                        recentInterviews.map((interview) => (
+                            <Link
+                                key={interview.id}
+                                href={interview.status === "active" ? `/interview/session/${interview.id}` : `/reports/${interview.id}`}
+                            >
+                                <Card className="premium-card hover:bg-secondary/20 transition-colors group cursor-pointer border-transparent hover:border-border/60">
+                                    <CardContent className="p-5 flex items-center justify-between">
+                                        <div className="flex items-center gap-5">
+                                            <div className="h-12 w-12 rounded-xl bg-primary/5 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                                <Calendar className="h-5 w-5" />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                                    {interview.role}
+                                                </h4>
+                                                <p className="text-sm text-muted-foreground mt-0.5">
+                                                    {formatCreatedAt(interview.created_at)} • {interview.difficulty_level}
+                                                </p>
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <Badge variant="outline" className={getStatusBadgeClass(interview.status)}>
+                                                        {interview.status.replace("_", " ")}
+                                                    </Badge>
+                                                    {interview.selected_status && (
+                                                        <Badge variant="secondary" className="capitalize">
+                                                            {interview.selected_status}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                                                {interview.role}
-                                            </h4>
-                                            <p className="text-sm text-muted-foreground mt-0.5">
-                                                {interview.date}
-                                            </p>
-                                        </div>
-                                    </div>
 
-                                    <div className="flex items-center gap-6">
-                                        <div className="min-w-[100px]">
-                                            <div className="flex justify-between text-xs font-medium mb-1.5">
-                                                <span className="text-muted-foreground">Score</span>
-                                                <span className="text-foreground">{interview.score} / 100</span>
+                                        <div className="flex items-center gap-6">
+                                            <div className="min-w-[200px]">
+                                                <div className="flex justify-between text-xs font-medium mb-1.5">
+                                                    <span className="text-muted-foreground">Progress</span>
+                                                    <span className="text-foreground">{interview.questions_answered}/{interview.questions_total}</span>
+                                                </div>
+                                                <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full bg-primary rounded-full"
+                                                        style={{ width: `${interview.progress_percent}%` }}
+                                                    />
+                                                </div>
+                                                <div className="mt-2 flex justify-between text-xs text-muted-foreground">
+                                                    <span>Score: {interview.score ?? "--"} / 100</span>
+                                                    <span>Time: {formatTimeTaken(interview.time_taken)}</span>
+                                                </div>
                                             </div>
-                                            <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary rounded-full"
-                                                    style={{ width: `${interview.score}%` }}
-                                                />
-                                            </div>
+                                            <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                                         </div>
-                                        <ArrowUpRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
+                                    </CardContent>
+                                </Card>
+                            </Link>
+                        ))
+                    )}
                 </div>
             </div>
 

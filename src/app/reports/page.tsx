@@ -1,63 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, TrendingUp, Calendar, Target, Activity } from "lucide-react";
+import {
+    TrendingUp,
+    Calendar,
+    Target,
+    ArrowUpRight,
+    CheckCircle2,
+    Trophy,
+    Flame,
+} from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import {
+    buildInterviewInsights,
+    type InterviewInsights,
+    type RecentInterviewRecord,
+} from "@/lib/interview-insights";
+import {
     AreaChart,
     Area,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Radar,
-    RadarChart,
-    PolarGrid,
-    PolarAngleAxis,
-    PolarRadiusAxis,
 } from "recharts";
-
-// Mock data for overall progress over time
-const progressData = [
-    { date: "Jan 12", score: 62 },
-    { date: "Jan 19", score: 65 },
-    { date: "Feb 02", score: 70 },
-    { date: "Feb 15", score: 68 },
-    { date: "Feb 24", score: 74 },
-];
-
-// Mock data for skill radar
-const skillData = [
-    { subject: "System Design", A: 85, fullMark: 100 },
-    { subject: "REST APIs", A: 90, fullMark: 100 },
-    { subject: "Databases", A: 80, fullMark: 100 },
-    { subject: "Caching", A: 60, fullMark: 100 },
-    { subject: "Concurrency", A: 75, fullMark: 100 },
-    { subject: "Algorithms", A: 65, fullMark: 100 },
-];
-
-interface RecentInterview {
-    id: string;
-    role: string;
-    difficulty_level: string;
-    status: string;
-    score: number | null;
-    selected_status: string | null;
-    time_taken: number | null;
-    created_at: string;
-    questions_total: number;
-    questions_answered: number;
-    progress_percent: number;
-}
 
 export default function AnalyticsDashboardPage() {
     const { token, user, logout } = useAuth();
-    const [recentInterviews, setRecentInterviews] = useState<RecentInterview[]>([]);
+    const [recentInterviews, setRecentInterviews] = useState<RecentInterviewRecord[]>([]);
+    const [insights, setInsights] = useState<InterviewInsights | null>(null);
     const [isRecentLoading, setIsRecentLoading] = useState(true);
     const [recentError, setRecentError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -72,7 +50,7 @@ export default function AnalyticsDashboardPage() {
 
         const fetchRecentInterviews = async () => {
             try {
-                const response = await fetch("http://localhost:8000/api/interviews/recent?limit=10", {
+                const response = await fetch("http://localhost:8000/api/interviews/recent?limit=50", {
                     headers: {
                         Authorization: `Bearer ${token}`
                     },
@@ -88,15 +66,17 @@ export default function AnalyticsDashboardPage() {
                     throw new Error("Failed to fetch recent interviews.");
                 }
 
-                const data: RecentInterview[] = await response.json();
+                const data: RecentInterviewRecord[] = await response.json();
                 if (isMounted) {
                     setRecentInterviews(data);
+                    setInsights(buildInterviewInsights(data));
                     setRecentError(null);
                     setLastUpdated(new Date());
                 }
             } catch (error) {
                 if (isMounted) {
                     setRecentError(error instanceof Error ? error.message : "Network error while loading recent interviews.");
+                    setInsights(null);
                 }
             } finally {
                 if (isMounted) {
@@ -106,13 +86,32 @@ export default function AnalyticsDashboardPage() {
         };
 
         fetchRecentInterviews();
-        const intervalId = setInterval(fetchRecentInterviews, 5000);
 
         return () => {
             isMounted = false;
-            clearInterval(intervalId);
         };
     }, [token, user, logout]);
+
+    const rolePerformanceData = useMemo(
+        () =>
+            (insights?.roleAverageScores ?? [])
+                .slice(0, 6)
+                .map((item) => ({
+                    role: item.role,
+                    score: item.averageScore,
+                    sessions: item.sessions,
+                })),
+        [insights]
+    );
+
+    const difficultyData = useMemo(
+        () =>
+            (insights?.difficultyBreakdown ?? []).map((item) => ({
+                difficulty: item.difficulty,
+                count: item.count,
+            })),
+        [insights]
+    );
 
     const formatCreatedAt = (isoDate: string) =>
         new Date(isoDate).toLocaleString(undefined, {
@@ -129,6 +128,15 @@ export default function AnalyticsDashboardPage() {
         return `${mins}m ${secs}s`;
     };
 
+    const formatAverageSeconds = (seconds: number | null) => {
+        if (seconds == null) return "--";
+        const roundedSeconds = Math.round(seconds);
+        const mins = Math.floor(roundedSeconds / 60);
+        const secs = roundedSeconds % 60;
+        if (mins === 0) return `${secs}s`;
+        return `${mins}m ${secs}s`;
+    };
+
     const getStatusBadgeClass = (status: string) => {
         if (status === "completed") return "bg-green-500/10 text-green-700 border-green-500/20";
         if (status === "under_evaluation") return "bg-amber-500/10 text-amber-700 border-amber-500/20";
@@ -139,14 +147,13 @@ export default function AnalyticsDashboardPage() {
     return (
         <div className="mx-auto max-w-6xl space-y-10 animate-in fade-in duration-700">
 
-            {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-border/50">
+            <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between pb-6 border-b border-border/50">
                 <div>
                     <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                         Performance Analytics
                     </h1>
                     <p className="mt-2 text-muted-foreground">
-                        Track your interview progression and skill development over time.
+                        Track your interview progression and actionable performance metrics.
                     </p>
                 </div>
                 <Button className="rounded-xl px-6" asChild>
@@ -156,25 +163,53 @@ export default function AnalyticsDashboardPage() {
                 </Button>
             </header>
 
-            {/* Top Level KPIs */}
-            <div className="grid gap-6 md:grid-cols-3">
+            <section className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <h2 className="text-lg font-semibold tracking-tight">Snapshot</h2>
+                    <p className="text-xs text-muted-foreground">Latest 50 interviews</p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="premium-card">
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div className="space-y-2">
                                 <p className="text-sm font-medium text-muted-foreground">Average Score</p>
-                                <div className="flexItems-baseline gap-2">
-                                    <p className="text-4xl font-bold tracking-tight">69.8</p>
-                                </div>
+                                {isRecentLoading ? (
+                                    <div className="h-8 w-20 rounded-lg bg-secondary/60 animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-bold tracking-tight">
+                                        {insights?.averageScore ?? "--"}
+                                    </p>
+                                )}
                             </div>
                             <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <Target className="h-5 w-5" />
                             </div>
                         </div>
                         <div className="mt-4 flex items-center gap-1.5 text-sm">
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                            <span className="text-green-500 font-medium">+12%</span>
-                            <span className="text-muted-foreground ml-1">from last month</span>
+                            {isRecentLoading ? (
+                                <div className="h-4 w-32 rounded bg-secondary/50 animate-pulse" />
+                            ) : insights?.scoreChangePercent == null ? (
+                                <span className="text-muted-foreground">Not enough data for trend yet</span>
+                            ) : (
+                                <>
+                                    <TrendingUp
+                                        className={`h-4 w-4 ${
+                                            insights.scoreChangePercent >= 0 ? "text-green-500" : "text-red-500"
+                                        }`}
+                                    />
+                                    <span
+                                        className={`font-medium ${
+                                            insights.scoreChangePercent >= 0 ? "text-green-500" : "text-red-500"
+                                        }`}
+                                    >
+                                        {insights.scoreChangePercent >= 0 ? "+" : ""}
+                                        {insights.scoreChangePercent}%
+                                    </span>
+                                    <span className="text-muted-foreground ml-1">vs earlier sessions</span>
+                                </>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -183,15 +218,23 @@ export default function AnalyticsDashboardPage() {
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div className="space-y-2">
-                                <p className="text-sm font-medium text-muted-foreground">Interviews Taken</p>
-                                <p className="text-4xl font-bold tracking-tight">5</p>
+                                <p className="text-sm font-medium text-muted-foreground">Completion Rate</p>
+                                {isRecentLoading ? (
+                                    <div className="h-8 w-20 rounded-lg bg-secondary/60 animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-bold tracking-tight">
+                                        {insights?.completionRate != null ? `${insights.completionRate}%` : "--"}
+                                    </p>
+                                )}
                             </div>
-                            <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-secondary text-foreground">
-                                <Activity className="h-5 w-5" />
+                            <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <CheckCircle2 className="h-5 w-5" />
                             </div>
                         </div>
                         <div className="mt-4 text-sm text-muted-foreground">
-                            <span className="font-medium text-foreground">2</span> this week
+                            {insights
+                                ? `${insights.completedInterviews}/${insights.totalInterviews} sessions completed`
+                                : "No data yet"}
                         </div>
                     </CardContent>
                 </Card>
@@ -200,116 +243,235 @@ export default function AnalyticsDashboardPage() {
                     <CardContent className="p-6">
                         <div className="flex justify-between items-start">
                             <div className="space-y-2">
-                                <p className="text-sm font-medium text-muted-foreground">Strongest Skill</p>
-                                <p className="text-2xl font-bold tracking-tight mt-2">REST APIs</p>
+                                <p className="text-sm font-medium text-muted-foreground">Selection Rate</p>
+                                {isRecentLoading ? (
+                                    <div className="h-8 w-20 rounded-lg bg-secondary/60 animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-bold tracking-tight">
+                                        {insights?.selectionRate != null ? `${insights.selectionRate}%` : "--"}
+                                    </p>
+                                )}
                             </div>
-                            <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-                                <ArrowUpRight className="h-5 w-5" />
+                            <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Trophy className="h-5 w-5" />
                             </div>
                         </div>
                         <div className="mt-4 text-sm text-muted-foreground">
-                            Based on <span className="font-medium text-foreground">14 questions</span>
+                            {insights && insights.completedInterviews > 0
+                                ? `${insights.selectedInterviews}/${insights.completedInterviews} completed interviews`
+                                : "Complete interviews to track this"}
                         </div>
                     </CardContent>
                 </Card>
-            </div>
 
-            {/* Main Charts Grid */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <Card className="premium-card">
+                    <CardContent className="p-6">
+                        <div className="flex justify-between items-start">
+                            <div className="space-y-2">
+                                <p className="text-sm font-medium text-muted-foreground">Active-Day Streak</p>
+                                {isRecentLoading ? (
+                                    <div className="h-8 w-20 rounded-lg bg-secondary/60 animate-pulse" />
+                                ) : (
+                                    <p className="text-4xl font-bold tracking-tight">
+                                        {insights?.activeDayStreak ?? 0}d
+                                    </p>
+                                )}
+                            </div>
+                            <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Flame className="h-5 w-5" />
+                            </div>
+                        </div>
+                        <div className="mt-4 text-sm text-muted-foreground">
+                            {insights
+                                ? `${insights.thisWeekCount} sessions this week | Avg time ${formatAverageSeconds(insights.averageTimeTakenSeconds)}`
+                                : "Start interviewing to build consistency"}
+                        </div>
+                    </CardContent>
+                </Card>
+                </div>
+            </section>
 
-                {/* Score Over Time (Area Chart) */}
-                <Card className="premium-card lg:col-span-2">
+            <section className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <h2 className="text-lg font-semibold tracking-tight">Comparisons</h2>
+                    <p className="text-xs text-muted-foreground">Role performance and difficulty mix</p>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                    <Card className="premium-card">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Role-Wise Average Score</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[300px] w-full mt-4">
+                                {isRecentLoading ? (
+                                    <div className="h-full w-full rounded-xl bg-secondary/40 animate-pulse" />
+                                ) : rolePerformanceData.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                                        Not enough completed interviews to compare roles.
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={rolePerformanceData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                            <XAxis
+                                                dataKey="role"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: "#6b7280", fontSize: 12 }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                domain={[0, 100]}
+                                                tick={{ fill: "#6b7280", fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: "#f3f4f6" }}
+                                                formatter={(value: number, _name, payload) => [
+                                                    `${value} / 100 (${payload.payload.sessions} sessions)`,
+                                                    "Average Score",
+                                                ]}
+                                                contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                            />
+                                            <Bar
+                                                dataKey="score"
+                                                fill="var(--color-primary)"
+                                                radius={[6, 6, 0, 0]}
+                                                barSize={36}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="premium-card">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Difficulty Distribution</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[300px] w-full mt-4">
+                                {isRecentLoading ? (
+                                    <div className="h-full w-full rounded-xl bg-secondary/40 animate-pulse" />
+                                ) : difficultyData.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                                        No interview difficulty data available.
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={difficultyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                            <XAxis
+                                                dataKey="difficulty"
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fill: "#6b7280", fontSize: 12 }}
+                                                dy={10}
+                                            />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                allowDecimals={false}
+                                                tick={{ fill: "#6b7280", fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                cursor={{ fill: "#f3f4f6" }}
+                                                formatter={(value: number) => [`${value} interview(s)`, "Sessions"]}
+                                                contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                            />
+                                            <Bar
+                                                dataKey="count"
+                                                fill="var(--color-primary)"
+                                                radius={[6, 6, 0, 0]}
+                                                barSize={42}
+                                            />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </section>
+
+            <section className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <h2 className="text-lg font-semibold tracking-tight">Score Trend</h2>
+                    <p className="text-xs text-muted-foreground">How scores move over time</p>
+                </div>
+
+                <Card className="premium-card">
                     <CardHeader>
                         <CardTitle className="text-lg">Score Progression</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px] w-full mt-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={progressData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "#6b7280", fontSize: 12 }}
-                                        dy={10}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fill: "#6b7280", fontSize: 12 }}
-                                        domain={[0, 100]}
-                                    />
-                                    <Tooltip
-                                        cursor={{ stroke: '#e5e7eb', strokeWidth: 2, strokeDasharray: '4 4' }}
-                                        contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="score"
-                                        stroke="var(--color-primary)"
-                                        strokeWidth={3}
-                                        fillOpacity={1}
-                                        fill="url(#colorScore)"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                            {isRecentLoading ? (
+                                <div className="h-full w-full rounded-xl bg-secondary/40 animate-pulse" />
+                            ) : (insights?.progressData.length ?? 0) === 0 ? (
+                                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                                    No completed interviews with scores yet.
+                                </div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={insights?.progressData ?? []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                        <XAxis
+                                            dataKey="date"
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: "#6b7280", fontSize: 12 }}
+                                            dy={10}
+                                        />
+                                        <YAxis
+                                            axisLine={false}
+                                            tickLine={false}
+                                            tick={{ fill: "#6b7280", fontSize: 12 }}
+                                            domain={[0, 100]}
+                                        />
+                                        <Tooltip
+                                            cursor={{ stroke: "#e5e7eb", strokeWidth: 2, strokeDasharray: "4 4" }}
+                                            contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
+                                        />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="score"
+                                            stroke="var(--color-primary)"
+                                            strokeWidth={3}
+                                            fillOpacity={1}
+                                            fill="url(#colorScore)"
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
+            </section>
 
-                {/* Skill Radar Chart */}
-                <Card className="premium-card">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Skill Radar</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex justify-center">
-                        <div className="h-[300px] w-full max-w-[300px] -mt-6">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={skillData}>
-                                    <PolarGrid stroke="#e5e7eb" />
-                                    <PolarAngleAxis
-                                        dataKey="subject"
-                                        tick={{ fill: "#374151", fontSize: 11, fontWeight: 500 }}
-                                    />
-                                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                                    <Radar
-                                        name="Skill Match"
-                                        dataKey="A"
-                                        stroke="var(--color-primary)"
-                                        strokeWidth={2}
-                                        fill="var(--color-primary)"
-                                        fillOpacity={0.2}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }}
-                                    />
-                                </RadarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Interview History List */}
             <div>
                 <div className="flex items-center justify-between mb-6 border-b border-border/40 pb-4">
                     <h2 className="text-xl font-semibold tracking-tight">Recent Interviews</h2>
                     <p className="text-xs text-muted-foreground">
-                        {lastUpdated ? `Live refresh (5s) • Updated ${lastUpdated.toLocaleTimeString()}` : "Live refresh (5s)"}
+                        {lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString()}` : "Loaded once on page open"}
                     </p>
                 </div>
 
                 <div className="grid gap-4">
                     {isRecentLoading ? (
                         <Card className="premium-card">
-                            <CardContent className="p-5 text-sm text-muted-foreground">Loading recent interviews...</CardContent>
+                            <CardContent className="p-5 text-sm text-muted-foreground">
+                                Preparing your recent interviews...
+                            </CardContent>
                         </Card>
                     ) : recentError ? (
                         <Card className="premium-card">
@@ -317,7 +479,9 @@ export default function AnalyticsDashboardPage() {
                         </Card>
                     ) : recentInterviews.length === 0 ? (
                         <Card className="premium-card">
-                            <CardContent className="p-5 text-sm text-muted-foreground">No interviews found yet. Start one to see live history here.</CardContent>
+                            <CardContent className="p-5 text-sm text-muted-foreground">
+                                You have not run any interviews yet. Start a new session to see your history here.
+                            </CardContent>
                         </Card>
                     ) : (
                         recentInterviews.map((interview) => (
@@ -336,7 +500,7 @@ export default function AnalyticsDashboardPage() {
                                                     {interview.role}
                                                 </h4>
                                                 <p className="text-sm text-muted-foreground mt-0.5">
-                                                    {formatCreatedAt(interview.created_at)} • {interview.difficulty_level}
+                                                    {formatCreatedAt(interview.created_at)} | {interview.difficulty_level}
                                                 </p>
                                                 <div className="mt-2 flex items-center gap-2">
                                                     <Badge variant="outline" className={getStatusBadgeClass(interview.status)}>
@@ -352,7 +516,7 @@ export default function AnalyticsDashboardPage() {
                                         </div>
 
                                         <div className="flex items-center gap-6">
-                                            <div className="min-w-[200px]">
+                                            <div className="min-w-[220px]">
                                                 <div className="flex justify-between text-xs font-medium mb-1.5">
                                                     <span className="text-muted-foreground">Progress</span>
                                                     <span className="text-foreground">{interview.questions_answered}/{interview.questions_total}</span>

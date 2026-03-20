@@ -45,8 +45,8 @@ export default function LoginPage() {
             const data = await res.json();
             login(data.access_token, data.user);
             router.push("/dashboard");
-        } catch (err: any) {
-            setError(err.message || "Something went wrong. Please try again.");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -128,7 +128,7 @@ export default function LoginPage() {
                     </CardContent>
                     <CardFooter className="flex justify-center flex-col gap-4 border-t border-border/50 pt-6 mt-2">
                         <p className="text-sm text-muted-foreground">
-                            Don't have an account?{" "}
+                            Don&apos;t have an account?{" "}
                             <Link href="/register" className="font-medium text-primary hover:underline">
                                 Create one now
                             </Link>

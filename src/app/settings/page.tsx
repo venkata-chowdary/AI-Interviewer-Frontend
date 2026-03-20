@@ -13,40 +13,164 @@ import {
     Bell,
     Shield,
     Laptop,
-    Camera,
-    CheckCircle2,
-    Sparkles
+    Camera,    Loader2,
+    KeyRound,
+    Github,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
+    const { user, token, login } = useAuth();
+    const router = useRouter();
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
+    const [bio, setBio] = useState("");
+    const [githubUsername, setGithubUsername] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [profileLoaded, setProfileLoaded] = useState(false);
+    const [showTimer, setShowTimer] = useState<boolean>(() => {
+        if (typeof window === "undefined") return true;
+        const stored = window.localStorage.getItem("timer_visibility");
+        return stored === null ? true : stored === "true";
+    });
+    const [oldPassword, setOldPassword] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+    const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!token) return;
+
+        const loadProfile = async () => {
+            try {
+                const res = await fetch("http://localhost:8000/auth/me", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                setFirstName(data.first_name || "");
+                setLastName(data.last_name || "");
+                setBio(data.bio || "");
+                setGithubUsername(data.github_username || "");
+
+                if (user) {
+                    login(token, {
+                        ...user,
+                        first_name: data.first_name,
+                        last_name: data.last_name,
+                        bio: data.bio,
+                        github_username: data.github_username,
+                        is_email_verified: data.is_email_verified,
+                    });
+                }
+                setProfileLoaded(true);
+            } catch {
+                // ignore for now
+            }
+        };
+
+        loadProfile();
+    }, [token, login, user]);
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            window.localStorage.setItem("timer_visibility", String(showTimer));
+        }
+    }, [showTimer]);
+
+    const handleChangePassword = async () => {
+        if (!token) return;
+        setPasswordError(null);
+        setPasswordSuccess(null);
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError("New password and confirmation do not match.");
+            return;
+        }
+
+        setIsChangingPassword(true);
+        try {
+            const res = await fetch("http://localhost:8000/auth/change-password", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    old_password: oldPassword,
+                    new_password: newPassword,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                setPasswordError(data.detail || "Failed to change password. Please try again.");
+                return;
+            }
+
+            setPasswordSuccess("Password updated successfully.");
+            setOldPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+        } catch {
+            setPasswordError("Something went wrong. Please try again.");
+        } finally {
+            setIsChangingPassword(false);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!token) return;
+        setIsSaving(true);
+        try {
+            const res = await fetch("http://localhost:8000/auth/profile", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    first_name: firstName,
+                    last_name: lastName,
+                    bio,
+                    github_username: githubUsername,
+                }),
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            if (user) {
+                login(token, {
+                    ...user,
+                    first_name: data.first_name,
+                    last_name: data.last_name,
+                    bio: data.bio,
+                    github_username: data.github_username,
+                    is_email_verified: data.is_email_verified,
+                });
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <div className="mx-auto max-w-5xl space-y-10 animate-in fade-in duration-700">
 
-            {/* Premium Header Area with Background Accent */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-10 border border-border/40 shadow-sm">
-                <div className="absolute top-0 right-0 p-8 opacity-20">
-                    <Sparkles className="w-48 h-48 text-primary" />
-                </div>
-                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div>
-                        <div className="flex items-center gap-3 mb-3">
-                            <Badge className="bg-primary text-primary-foreground hover:bg-primary shadow-md">
-                                Pro Plan
-                            </Badge>
-                            <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
-                                <CheckCircle2 className="w-4 h-4 text-green-500" /> All systems active
-                            </span>
-                        </div>
-                        <h1 className="text-4xl font-semibold tracking-tight text-foreground">
-                            Account Settings
-                        </h1>
-                        <p className="mt-2 text-lg text-muted-foreground max-w-xl">
-                            Manage your profile, interview preferences, and account settings.
-                        </p>
-                    </div>
-                    <Button className="rounded-xl px-8 shadow-lg shadow-primary/20 h-12 text-base">
-                        Upgrade Account
-                    </Button>
+            {/* Simple Header */}
+            <div className="flex items-end justify-between border-b border-border/40 pb-6">
+                <div>
+                    <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+                        Account Settings
+                    </h1>
+                    <p className="mt-2 text-muted-foreground">
+                        Manage your profile, interview preferences, and communication settings.
+                    </p>
                 </div>
             </div>
 
@@ -78,15 +202,28 @@ export default function SettingsPage() {
                                 <div className="relative group inline-block">
                                     <Avatar className="h-32 w-32 border-4 border-white shadow-xl bg-white relative z-10 transition-transform duration-300 group-hover:scale-105">
                                         <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" className="object-cover" />
-                                        <AvatarFallback className="text-3xl bg-primary/10 text-primary font-light">AL</AvatarFallback>
+                                        <AvatarFallback className="text-3xl bg-primary/10 text-primary font-light">
+                                            {(firstName || lastName
+                                                ? `${firstName || ""}${lastName ? lastName.charAt(0) : ""}`
+                                                : (user?.email ?? "??").slice(0, 2)
+                                            ).toUpperCase()}
+                                        </AvatarFallback>
                                     </Avatar>
                                     <button className="absolute bottom-2 -right-1 z-20 bg-primary text-white p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform">
                                         <Camera className="w-4 h-4" />
                                     </button>
                                 </div>
                                 <div className="mb-2 space-y-1.5 mt-4 sm:mt-0">
-                                    <h3 className="text-2xl font-bold tracking-tight">Alex Lee</h3>
-                                    <p className="text-muted-foreground text-sm font-medium">Backend Engineer • Member since 2024</p>
+                                    <h3 className="text-2xl font-bold tracking-tight">
+                                        {firstName || lastName
+                                            ? `${firstName} ${lastName}`.trim()
+                                            : user?.email?.split("@")[0] ?? "Your public profile"}
+                                    </h3>
+                                    <p className="text-muted-foreground text-sm font-medium">
+                                        {bio
+                                            ? bio
+                                            : "Tell recruiters a bit about yourself in your professional bio."}
+                                    </p>
                                 </div>
                             </div>
 
@@ -100,7 +237,7 @@ export default function SettingsPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {/* Left Column: Detailed Form */}
-                        <Card className="premium-card col-span-1 md:col-span-2 h-fit">
+                        <Card className="premium-card col-span-1 md:col-span-2 h-fit relative overflow-hidden">
                             <CardHeader className="pb-4">
                                 <CardTitle className="text-xl">Personal Information</CardTitle>
                                 <CardDescription>
@@ -108,23 +245,72 @@ export default function SettingsPage() {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-8">
+                                {!profileLoaded && (
+                                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-sm">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                            <span className="text-xs text-muted-foreground">
+                                                Getting your profile ready…
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid gap-6 md:grid-cols-2">
                                     <div className="space-y-3">
                                         <Label htmlFor="firstName" className="text-muted-foreground">First name</Label>
-                                        <Input id="firstName" defaultValue="Alex" className="rounded-xl h-12 bg-secondary/20 border-border/60 focus:bg-white transition-colors" />
+                                        <Input
+                                            id="firstName"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            className="rounded-xl h-12 bg-secondary/20 border-border/60 focus:bg-white transition-colors"
+                                            disabled={!profileLoaded}
+                                        />
                                     </div>
                                     <div className="space-y-3">
                                         <Label htmlFor="lastName" className="text-muted-foreground">Last name</Label>
-                                        <Input id="lastName" defaultValue="Lee" className="rounded-xl h-12 bg-secondary/20 border-border/60 focus:bg-white transition-colors" />
+                                        <Input
+                                            id="lastName"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            className="rounded-xl h-12 bg-secondary/20 border-border/60 focus:bg-white transition-colors"
+                                            disabled={!profileLoaded}
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="space-y-3">
                                     <Label htmlFor="email" className="text-muted-foreground flex items-center justify-between">
-                                        Email Address <Badge variant="secondary" className="font-normal text-xs bg-green-500/10 text-green-600 border-none">Verified</Badge>
+                                        Email Address{" "}
+                                        <Badge
+                                            variant="secondary"
+                                            className={`font-normal text-xs border-none ${
+                                                user?.is_email_verified
+                                                    ? "bg-green-500/10 text-green-600"
+                                                    : "bg-yellow-500/10 text-yellow-700"
+                                            }`}
+                                        >
+                                            {user?.is_email_verified ? "Verified" : "Not verified"}
+                                        </Badge>
                                     </Label>
-                                    <Input id="email" type="email" defaultValue="alex.lee@example.com" disabled className="rounded-xl h-12 bg-secondary/30 text-muted-foreground border-transparent opacity-80" />
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={user?.email ?? ""}
+                                        disabled
+                                        className="rounded-xl h-12 bg-secondary/30 text-muted-foreground border-transparent opacity-80"
+                                    />
+                                    {!user?.is_email_verified && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="mt-2 rounded-xl"
+                                            onClick={() => router.push("/verify-email")}
+                                            disabled={!profileLoaded}
+                                        >
+                                            Verify email
+                                        </Button>
+                                    )}
                                 </div>
 
                                 <div className="space-y-3">
@@ -132,19 +318,110 @@ export default function SettingsPage() {
                                     <textarea
                                         id="bio"
                                         className="w-full min-h-[120px] resize-y rounded-xl border border-border/60 bg-secondary/20 focus:bg-white p-4 text-sm leading-relaxed text-foreground placeholder-muted-foreground/60 focus:border-primary/50 focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all duration-200"
-                                        defaultValue="Backend specialist with 4 years focusing on Python, FastAPI, and distributed systems. Looking to level up system design skills."
+                                        value={bio}
+                                        onChange={(e) => setBio(e.target.value)}
+                                        disabled={!profileLoaded}
                                     />
                                 </div>
 
+                                <div className="space-y-3">
+                                    <Label htmlFor="githubUsername" className="text-muted-foreground">
+                                        GitHub Username
+                                    </Label>
+                                    <div className="relative">
+                                        <Github className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            id="githubUsername"
+                                            value={githubUsername}
+                                            onChange={(e) => setGithubUsername(e.target.value)}
+                                            placeholder="octocat or github.com/octocat"
+                                            className="rounded-xl h-12 bg-secondary/20 border-border/60 pl-11 focus:bg-white transition-colors"
+                                            disabled={!profileLoaded}
+                                        />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Used to render your GitHub contribution heat map on the dashboard.
+                                    </p>
+                                </div>
+
                                 <div className="pt-4 flex items-center justify-between border-t border-border/40 mt-8 pt-8">
-                                    <p className="text-sm text-muted-foreground">Last updated today at 10:42 AM.</p>
-                                    <Button className="rounded-xl px-8 shadow-md h-11">Save Changes</Button>
+                                    <p className="text-sm text-muted-foreground">
+                                        {profileLoaded
+                                            ? "Your latest profile details are saved."
+                                            : "Fetching your profile details…"}
+                                    </p>
+                                    <Button
+                                        className="rounded-xl px-8 shadow-md h-11"
+                                        onClick={handleSave}
+                                        disabled={isSaving || !profileLoaded}
+                                    >
+                                        {isSaving ? "Saving..." : "Save Changes"}
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Right Column: Danger Zone (Spans remaining space in grid) */}
+                        {/* Right Column: Security & Danger Zone */}
                         <div className="col-span-1 space-y-8">
+                            <Card className="premium-card h-fit">
+                                <CardHeader>
+                                    <CardTitle className="text-xl flex items-center gap-2">
+                                        <KeyRound className="w-5 h-5" />
+                                        Change Password
+                                    </CardTitle>
+                                    <CardDescription>
+                                        Update your password using your current credentials.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="oldPassword">Current password</Label>
+                                        <Input
+                                            id="oldPassword"
+                                            type="password"
+                                            value={oldPassword}
+                                            onChange={(e) => setOldPassword(e.target.value)}
+                                            className="rounded-xl h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="newPassword">New password</Label>
+                                        <Input
+                                            id="newPassword"
+                                            type="password"
+                                            value={newPassword}
+                                            onChange={(e) => setNewPassword(e.target.value)}
+                                            className="rounded-xl h-10"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="confirmPassword">Confirm new password</Label>
+                                        <Input
+                                            id="confirmPassword"
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            className="rounded-xl h-10"
+                                        />
+                                    </div>
+
+                                    {passwordError && (
+                                        <p className="text-sm text-destructive">{passwordError}</p>
+                                    )}
+                                    {passwordSuccess && (
+                                        <p className="text-sm text-emerald-600">{passwordSuccess}</p>
+                                    )}
+
+                                    <Button
+                                        className="w-full rounded-xl h-11"
+                                        onClick={handleChangePassword}
+                                        disabled={isChangingPassword || !oldPassword || !newPassword || !confirmPassword}
+                                    >
+                                        {isChangingPassword ? "Updating..." : "Update Password"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
                             <Card className="premium-card border-destructive/20 bg-destructive/[0.02] h-fit">
                                 <CardHeader>
                                     <CardTitle className="text-xl text-destructive flex items-center gap-2">
@@ -183,7 +460,7 @@ export default function SettingsPage() {
                                         Get evaluated more strictly on edge cases, system design, and performance. Recommended for senior roles.
                                     </p>
                                 </div>
-                                <Switch className="data-[state=checked]:bg-primary" />
+                                <Switch className="data-[state=checked]:bg-primary opacity-50 cursor-not-allowed" disabled />
                             </div>
 
                             <div className="group flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white hover:border-primary/30 transition-colors shadow-sm">
@@ -193,7 +470,7 @@ export default function SettingsPage() {
                                         Experience rapid follow-up questions and challenged assumptions to simulate high-stress interviews.
                                     </p>
                                 </div>
-                                <Switch />
+                                <Switch className="opacity-50 cursor-not-allowed" disabled />
                             </div>
 
                             <div className="group flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white hover:border-primary/30 transition-colors shadow-sm">
@@ -203,7 +480,11 @@ export default function SettingsPage() {
                                         Show the countdown timer during interviews. Turn off to reduce pressure.
                                     </p>
                                 </div>
-                                <Switch defaultChecked className="data-[state=checked]:bg-primary" />
+                                <Switch
+                                    checked={showTimer}
+                                    onCheckedChange={setShowTimer}
+                                    className="data-[state=checked]:bg-primary"
+                                />
                             </div>
 
                         </CardContent>
@@ -221,24 +502,24 @@ export default function SettingsPage() {
                         </CardHeader>
                         <CardContent className="space-y-6">
 
-                            <div className="flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white shadow-sm">
+                            <div className="flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white shadow-sm opacity-50">
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Weekly Summary</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
                                         Get a weekly digest of your interview performance and progress.
                                     </p>
                                 </div>
-                                <Switch defaultChecked className="data-[state=checked]:bg-primary" />
+                                <Switch defaultChecked className="data-[state=checked]:bg-primary cursor-not-allowed" disabled />
                             </div>
 
-                            <div className="flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white shadow-sm">
+                            <div className="flex items-center justify-between rounded-2xl border border-border/40 p-6 bg-white shadow-sm opacity-50">
                                 <div className="space-y-1.5 max-w-[80%]">
                                     <Label className="text-base font-semibold">Study Plan Reminders</Label>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
                                         Get email reminders for your study plans to stay on track.
                                     </p>
                                 </div>
-                                <Switch defaultChecked className="data-[state=checked]:bg-primary" />
+                                <Switch defaultChecked className="data-[state=checked]:bg-primary cursor-not-allowed" disabled />
                             </div>
 
                         </CardContent>
@@ -248,3 +529,5 @@ export default function SettingsPage() {
         </div>
     );
 }
+
+

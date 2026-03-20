@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
+  BriefcaseBusiness,
   FileText,
   Home,
   MessageSquare,
@@ -19,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: Home },
   { name: "Upload Resume", href: "/upload", icon: FileText },
+  { name: "JD Match", href: "/job-match", icon: BriefcaseBusiness },
   { name: "Mock Interview", href: "/interview/start", icon: MessageSquare },
   { name: "Analytics", href: "/reports", icon: BarChart3 },
 ];
@@ -35,7 +37,7 @@ export function Sidebar() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Sparkles className="h-4 w-4" />
           </div>
-          <span className="text-sm font-semibold tracking-tight text-foreground">
+          <span className="text-[13px] font-semibold tracking-[-0.02em] text-foreground">
             InterviewAI
           </span>
         </div>
@@ -50,7 +52,7 @@ export function Sidebar() {
               key={item.name}
               href={item.href}
               className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium tracking-[-0.01em] transition-all duration-200",
                 isActive
                   ? "bg-primary/5 text-primary shadow-[inset_0_1px_0_rgb(255,255,255,0.5),0_1px_2px_rgb(0,0,0,0.02)]"
                   : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
@@ -74,14 +76,18 @@ export function Sidebar() {
           <div className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-foreground bg-primary/5 border border-primary/10">
             <UserCircle className="h-6 w-6 text-primary" />
             <div className="flex flex-col overflow-hidden">
-              <span className="font-semibold truncate text-xs">{user.email}</span>
+              <span className="truncate text-[11px] font-semibold tracking-[-0.01em]">
+                {user.first_name
+                  ? `${user.first_name} ${user.last_name ?? ""}`.trim()
+                  : user.email}
+              </span>
             </div>
           </div>
         ) : null}
 
         <Link
           href="/settings"
-          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-secondary/50 hover:text-foreground"
+          className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium tracking-[-0.01em] text-muted-foreground transition-all duration-200 hover:bg-secondary/50 hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
           Settings
@@ -90,7 +96,7 @@ export function Sidebar() {
         {user ? (
           <button
             onClick={logout}
-            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-destructive/10 hover:text-destructive text-left"
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium tracking-[-0.01em] text-muted-foreground transition-all duration-200 hover:bg-destructive/10 hover:text-destructive text-left"
           >
             <LogOut className="h-4 w-4" />
             Sign Out
@@ -98,7 +104,7 @@ export function Sidebar() {
         ) : (
           <Link
             href="/login"
-            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+            className="group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[13px] font-medium tracking-[-0.01em] text-muted-foreground transition-all duration-200 hover:bg-primary/10 hover:text-primary"
           >
             <LogIn className="h-4 w-4" />
             Sign In

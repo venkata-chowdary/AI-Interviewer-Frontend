@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CloudUpload, FileText, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 
 export default function UploadPage() {
@@ -72,20 +71,20 @@ export default function UploadPage() {
             }
 
             setUploadSuccess(true);
-        } catch (err: any) {
-            setError(err.message || "An error occurred during upload");
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An error occurred during upload");
         } finally {
             setIsUploading(false);
         }
     };
 
     return (
-        <div className="mx-auto max-w-3xl space-y-8 animate-in slide-in-from-bottom-4 duration-500">
-            <header className="text-center">
+        <div className="mx-auto max-w-3xl space-y-6 animate-in slide-in-from-bottom-4 duration-500 pt-2 md:pt-4">
+            <header className="text-center space-y-2">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                     Upload Your Resume
                 </h1>
-                <p className="mt-2 text-muted-foreground">
+                <p className="text-muted-foreground">
                     Upload your resume to get a personalized interview tailored to your experience.
                 </p>
             </header>
@@ -116,7 +115,7 @@ export default function UploadPage() {
                             <div className="flex flex-col items-center">
                                 <Loader2 className="mb-6 h-16 w-16 animate-spin text-primary" />
                                 <h3 className="mb-2 text-xl font-medium text-foreground">
-                                    Processing your resume...
+                                    Analyzing your resume...
                                 </h3>
                                 <p className="text-sm text-muted-foreground max-w-xs">
                                     Our AI is currently chunking and indexing your resume content for interview context.
@@ -151,7 +150,7 @@ export default function UploadPage() {
                 </Card>
             ) : (
                 /* Success State */
-                <div className="mt-12 space-y-6 rounded-2xl border border-border/60 bg-white p-8 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+                <div className="space-y-6 rounded-2xl border border-border/60 bg-white p-8 shadow-sm animate-in fade-in slide-in-from-bottom-4">
                     <div className="flex items-center gap-3">
                         <CheckCircle2 className="h-6 w-6 text-green-500" />
                         <h3 className="text-lg font-medium">Resume Processed Successfully!</h3>
@@ -165,16 +164,32 @@ export default function UploadPage() {
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center pt-4">
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                        <p className="text-sm font-medium text-foreground">Next step: job description match</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Open your dashboard to compare this resume against a role and see the missing skills instantly.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                         <Button variant="outline" onClick={() => { setFile(null); setUploadSuccess(false); }} className="rounded-xl px-6">
                             Upload Another
                         </Button>
-                        <Button
-                            className="rounded-xl px-6"
-                            onClick={() => router.push('/interview/start')}
-                        >
-                            Continue to Interview
-                        </Button>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <Button
+                                variant="outline"
+                                className="rounded-xl px-6"
+                                onClick={() => router.push('/dashboard')}
+                            >
+                                Open Dashboard
+                            </Button>
+                            <Button
+                                className="rounded-xl px-6"
+                                onClick={() => router.push('/interview/start')}
+                            >
+                                Continue to Interview
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}

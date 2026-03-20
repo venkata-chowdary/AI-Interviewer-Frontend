@@ -27,6 +27,12 @@ interface AttemptReportItem {
     time_taken: number | null;
 }
 
+interface PerformanceReportDimensions {
+    technical_depth?: number;
+    communication?: number;
+    confidence?: number;
+}
+
 interface PerformanceReport {
     strengts?: string[];
     strengths?: string[];
@@ -40,6 +46,7 @@ interface PerformanceReport {
     next_steps?: string[];
     summary?: string;
     overall_summary?: string;
+    dimensions?: PerformanceReportDimensions;
 }
 
 interface InterviewReportResponse {
@@ -114,11 +121,9 @@ export default function ReportPage() {
         };
 
         fetchReport();
-        const intervalId = setInterval(fetchReport, 5000);
 
         return () => {
             isMounted = false;
-            clearInterval(intervalId);
         };
     }, [sessionId, token, user, logout]);
 
@@ -162,6 +167,12 @@ export default function ReportPage() {
         reportDetails?.overall_summary
     );
 
+    const dimensionValues = {
+        technicalDepth: reportDetails?.dimensions?.technical_depth ?? null,
+        communication: reportDetails?.dimensions?.communication ?? null,
+        confidence: reportDetails?.dimensions?.confidence ?? null,
+    };
+
     const chartData = useMemo(() => {
         if (!report?.attempts?.length) return [];
         return report.attempts.map((attempt) => {
@@ -197,6 +208,32 @@ export default function ReportPage() {
             ? `${Math.floor(report.time_taken / 60)}m ${report.time_taken % 60}s`
             : "--";
 
+    const statusBadgeClass = (status: string) => {
+        const normalized = status.toLowerCase();
+        if (normalized === "completed") {
+            return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        }
+        if (normalized === "active" || normalized === "in_progress") {
+            return "bg-sky-50 text-sky-700 border-sky-200";
+        }
+        if (normalized === "under_evaluation") {
+            return "bg-amber-50 text-amber-700 border-amber-200";
+        }
+        return "bg-slate-50 text-slate-700 border-slate-200";
+    };
+
+    const selectionBadgeClass = (selectedStatus: string | null) => {
+        if (!selectedStatus) return "";
+        const normalized = selectedStatus.toLowerCase();
+        if (normalized === "selected") {
+            return "bg-emerald-600 text-emerald-50";
+        }
+        if (normalized === "rejected") {
+            return "bg-rose-600 text-rose-50";
+        }
+        return "";
+    };
+
     if (loading) {
         return (
             <div className="flex h-[70vh] items-center justify-center">
@@ -207,7 +244,7 @@ export default function ReportPage() {
 
     if (error || !report) {
         return (
-            <div className="mx-auto max-w-3xl pt-10">
+            <div className="mx-auto max-w-3xl pt-2 md:pt-4">
                 <Card className="premium-card">
                     <CardContent className="p-6 text-sm text-destructive">
                         {error || "Unable to load interview report."}
@@ -225,11 +262,16 @@ export default function ReportPage() {
                         <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
                             Mock Interview Result
                         </Badge>
-                        <Badge variant="outline" className="capitalize">
+                        <Badge
+                            variant="outline"
+                            className={`capitalize ${statusBadgeClass(report.status)}`}
+                        >
                             {report.status.replace("_", " ")}
                         </Badge>
                         {report.selected_status && (
-                            <Badge className="capitalize">{report.selected_status}</Badge>
+                            <Badge className={`capitalize ${selectionBadgeClass(report.selected_status)}`}>
+                                {report.selected_status}
+                            </Badge>
                         )}
                     </div>
                     <h1 className="text-3xl font-semibold tracking-tight text-foreground">
@@ -253,33 +295,48 @@ export default function ReportPage() {
             </header>
 
             <div className="grid gap-6 md:grid-cols-3">
-                <Card className="premium-card col-span-1">
+                <Card className="premium-card col-span-1 transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
                     <CardHeader>
                         <CardTitle className="text-lg">Core Dimensions</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             <div className="flex justify-between text-sm font-medium">
-                                <span className="text-foreground">Technical Accuracy</span>
-                                <span className="text-muted-foreground">{Math.round(report.marks ?? 0)}%</span>
+                                <span className="text-foreground">Technical Depth</span>
+                                <span className="text-muted-foreground">
+                                    {dimensionValues.technicalDepth !== null ? `${Math.round(dimensionValues.technicalDepth)}%` : "--"}
+                                </span>
                             </div>
-                            <Progress value={Math.round(report.marks ?? 0)} className="h-2 bg-secondary" />
+                            <Progress
+                                value={dimensionValues.technicalDepth !== null ? Math.round(dimensionValues.technicalDepth) : 0}
+                                className="h-2 bg-secondary"
+                            />
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             <div className="flex justify-between text-sm font-medium">
-                                <span className="text-foreground">Attempt Quality Avg</span>
-                                <span className="text-muted-foreground">{averageAttemptPercent}%</span>
+                                <span className="text-foreground">Communication &amp; Clarity</span>
+                                <span className="text-muted-foreground">
+                                    {dimensionValues.communication !== null ? `${Math.round(dimensionValues.communication)}%` : "--"}
+                                </span>
                             </div>
-                            <Progress value={averageAttemptPercent} className="h-2 bg-secondary" />
+                            <Progress
+                                value={dimensionValues.communication !== null ? Math.round(dimensionValues.communication) : 0}
+                                className="h-2 bg-secondary"
+                            />
                         </div>
 
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                             <div className="flex justify-between text-sm font-medium">
-                                <span className="text-foreground">Completion</span>
-                                <span className="text-muted-foreground">{report.progress_percent}%</span>
+                                <span className="text-foreground">Confidence Level</span>
+                                <span className="text-muted-foreground">
+                                    {dimensionValues.confidence !== null ? `${Math.round(dimensionValues.confidence)}%` : "--"}
+                                </span>
                             </div>
-                            <Progress value={report.progress_percent} className="h-2 bg-secondary" />
+                            <Progress
+                                value={dimensionValues.confidence !== null ? Math.round(dimensionValues.confidence) : 0}
+                                className="h-2 bg-secondary"
+                            />
                         </div>
 
                         <div className="pt-2 text-xs text-muted-foreground flex items-center gap-2">
@@ -289,7 +346,7 @@ export default function ReportPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="premium-card col-span-2">
+                <Card className="premium-card col-span-2 transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
                     <CardHeader>
                         <CardTitle className="text-lg">Question Score Breakdown</CardTitle>
                     </CardHeader>
@@ -329,7 +386,7 @@ export default function ReportPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
-                <Card className="premium-card border-none bg-secondary/30">
+                <Card className="premium-card border-none bg-secondary/30 transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
                     <CardContent className="p-6 space-y-6">
                         <div>
                             <h3 className="font-semibold flex items-center gap-2 mb-4 text-lg">
@@ -363,8 +420,8 @@ export default function ReportPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="premium-card overflow-hidden gap-0">
-                    <CardHeader className=" border-b border-border/40 pb-4">
+                <Card className="premium-card overflow-hidden gap-0 transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
+                    <CardHeader className="border-b border-border/40 pb-4">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <BookOpen className="h-5 w-5 text-primary" />
                             Suggestions and Summary
@@ -391,7 +448,7 @@ export default function ReportPage() {
                 </Card>
             </div>
 
-            <Card className="premium-card">
+            <Card className="premium-card transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
                 <CardHeader>
                     <CardTitle className="text-lg">Question-Level Feedback</CardTitle>
                 </CardHeader>
@@ -410,7 +467,10 @@ export default function ReportPage() {
                                     : "--";
 
                             return (
-                                <div key={attempt.question_id} className="rounded-xl border border-border/50 p-4 space-y-2">
+                                <div
+                                    key={attempt.question_id}
+                                    className="rounded-xl border border-border/50 p-4 space-y-2 transition-colors duration-150 hover:bg-secondary/40"
+                                >
                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                         <p className="font-medium text-sm">
                                             Q{attempt.question_order}: {attempt.question_text ?? "Question text unavailable"}

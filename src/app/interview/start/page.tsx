@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Play, Loader2, AlertCircle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Play, Loader2, AlertCircle, Keyboard, Mic } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
@@ -24,7 +24,7 @@ interface Resume {
 
 export default function StartInterviewPage() {
     const router = useRouter();
-    const { token, user } = useAuth();
+    const { token } = useAuth();
 
     const [resumes, setResumes] = useState<Resume[]>([]);
     const [isLoadingResumes, setIsLoadingResumes] = useState(true);
@@ -36,6 +36,7 @@ export default function StartInterviewPage() {
     const [role, setRole] = useState<string>("");
     const [difficulty, setDifficulty] = useState<string>("");
     const [duration, setDuration] = useState<string>("");
+    const [interviewMode, setInterviewMode] = useState<"text" | "voice" | "">("");
 
     useEffect(() => {
         if (!token) {
@@ -55,9 +56,9 @@ export default function StartInterviewPage() {
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
+                    const data: Resume[] = await response.json();
                     // Filter only completed resumes
-                    const completedResumes = data.filter((r: any) => r.analysis_status === "completed");
+                    const completedResumes = data.filter((r) => r.analysis_status === "completed");
                     setResumes(completedResumes);
                 } else if (response.status !== 404) {
                     console.error("Failed to fetch resumes");
@@ -73,7 +74,7 @@ export default function StartInterviewPage() {
     }, [token]);
 
     const handleStartInterview = async () => {
-        if (!selectedResumeId || !role || !difficulty || !duration) {
+        if (!selectedResumeId || !role || !difficulty || !duration || !interviewMode) {
             setError("Please answer all choices before starting.");
             return;
         }
@@ -86,7 +87,8 @@ export default function StartInterviewPage() {
                 resume_id: selectedResumeId,
                 role: role,
                 difficulty_level: difficulty,
-                duration: parseInt(duration)
+                duration: parseInt(duration),
+                mode: interviewMode
             };
 
             const response = await fetch("http://localhost:8000/api/interview/start", {
@@ -102,10 +104,16 @@ export default function StartInterviewPage() {
                 const data = await response.json();
                 // Ensure session_id is returned by the new backend schema
                 if (data.session_id) {
-                    router.push(`/interview/session/${data.session_id}`);
+                    if (typeof window !== "undefined") {
+                        window.localStorage.setItem(`interview_mode_${data.session_id}`, interviewMode);
+                    }
+                    router.push(`/interview/session/${data.session_id}?mode=${interviewMode}`);
                 } else {
                     // Fallback check if it returns ID directly or diff prop
-                    router.push(`/interview/session/${data.id || "new"}`);
+                    if (typeof window !== "undefined") {
+                        window.localStorage.setItem(`interview_mode_${data.id || "new"}`, interviewMode);
+                    }
+                    router.push(`/interview/session/${data.id || "new"}?mode=${interviewMode}`);
                 }
             } else {
                 const errorData = await response.json();
@@ -119,12 +127,12 @@ export default function StartInterviewPage() {
         }
     };
     return (
-        <div className="mx-auto max-w-2xl space-y-8 animate-in slide-in-from-bottom-4 duration-500 pt-10">
-            <header className="text-center">
+        <div className="mx-auto max-w-2xl space-y-6 animate-in slide-in-from-bottom-4 duration-500 pt-2 md:pt-4">
+            <header className="text-center space-y-2">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                     Start Mock Interview
                 </h1>
-                <p className="mt-2 text-muted-foreground">
+                <p className="text-muted-foreground">
                     Customize your mock interview based on your profile.
                 </p>
             </header>
@@ -153,7 +161,7 @@ export default function StartInterviewPage() {
                                 <AlertCircle className="h-4 w-4" />
                                 <AlertTitle>No Processed Resumes Found</AlertTitle>
                                 <AlertDescription className="pt-2">
-                                    You don't have any fully processed resumes available for an interview.
+                                    You don&apos;t have any fully processed resumes available for an interview.
                                     Please upload and wait for analysis to complete on the dashboard.
                                 </AlertDescription>
                             </Alert>
@@ -204,7 +212,7 @@ export default function StartInterviewPage() {
                         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Difficulty
                         </h3>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                             {["easy", "medium", "hard"].map((d) => (
                                 <Button
                                     key={d}
@@ -223,9 +231,39 @@ export default function StartInterviewPage() {
 
                     <div className="space-y-4">
                         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                            Interview Mode
+                        </h3>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => setInterviewMode("text")}
+                                className={`h-12 ${interviewMode === "text"
+                                    ? "border-primary bg-primary/10 font-semibold shadow-sm text-primary"
+                                    : "font-normal text-muted-foreground"
+                                    }`}
+                            >
+                                <Keyboard className="mr-2 h-4 w-4" />
+                                Text
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={() => setInterviewMode("voice")}
+                                className={`h-12 ${interviewMode === "voice"
+                                    ? "border-primary bg-primary/10 font-semibold shadow-sm text-primary"
+                                    : "font-normal text-muted-foreground"
+                                    }`}
+                            >
+                                <Mic className="mr-2 h-4 w-4" />
+                                Voice
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                             Duration
                         </h3>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                             {[10, 20, 30].map((t) => (
                                 <Button
                                     key={t}
@@ -246,7 +284,7 @@ export default function StartInterviewPage() {
                         <Button
                             className="w-full h-14 rounded-xl text-lg shadow-lg shadow-primary/25"
                             onClick={handleStartInterview}
-                            disabled={!selectedResumeId || !role || !difficulty || !duration || isSubmitting || resumes.length === 0}
+                            disabled={!selectedResumeId || !role || !difficulty || !duration || !interviewMode || isSubmitting || resumes.length === 0}
                         >
                             {isSubmitting ? (
                                 <>

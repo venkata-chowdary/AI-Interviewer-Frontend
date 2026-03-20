@@ -3,35 +3,34 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuth } from "@/lib/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
+
+const emptySubscribe = () => () => {};
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
     const { user, isLoading } = useAuth();
-    const [isMounted, setIsMounted] = useState(false);
+    const isMounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
     // Determine if the current route is an auth route
     const isAuthRoute = pathname === "/login" || pathname === "/register";
 
     useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        if (!isLoading && isMounted) {
-            if (!user && !isAuthRoute) {
-                // If not logged in and not on an auth page, redirect to login
-                router.push("/login");
-            } else if (user && isAuthRoute) {
-                // If logged in and on an auth page, redirect to dashboard
-                router.push("/dashboard");
-            }
+        if (!isMounted || isLoading) {
+            return;
         }
-    }, [user, isLoading, isAuthRoute, router, isMounted]);
 
-    // Prevent hydration mismatch and hide content until client is ready
+        if (!user && !isAuthRoute) {
+            // If not logged in and not on an auth page, redirect to login
+            router.push("/login");
+        } else if (user && isAuthRoute) {
+            // If logged in and on an auth page, redirect to dashboard
+            router.push("/dashboard");
+        }
+    }, [user, isLoading, isAuthRoute, isMounted, router]);
+
     if (!isMounted || isLoading) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
@@ -54,7 +53,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         return (
             <div className="flex h-screen overflow-hidden">
                 <Sidebar />
-                <main className="flex-1 overflow-y-auto px-8 py-10 selection:bg-primary/20">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 md:px-8 md:py-4 selection:bg-primary/20">
                     {children}
                 </main>
             </div>

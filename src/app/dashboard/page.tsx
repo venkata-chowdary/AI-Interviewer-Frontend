@@ -4,9 +4,26 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Brain, Code, FileText, Target, Loader2, AlertCircle, UploadCloud } from "lucide-react";
+import {
+    ArrowRight,
+    Brain,
+    Target,
+    Loader2,
+    UploadCloud,
+    FileText,
+    ClipboardCheck,
+    CalendarDays,
+    Clock3,
+    Flame,
+} from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
+import {
+    buildInterviewInsights,
+    type InterviewInsights,
+    type RecentInterviewRecord,
+} from "@/lib/interview-insights";
+import { GitHubHeatmapCard } from "@/components/github/GitHubHeatmapCard";
 import {
     Dialog,
     DialogContent,
@@ -30,6 +47,10 @@ export default function DashboardPage() {
     const [resumeLoading, setResumeLoading] = useState(true);
     const [showWelcomePopup, setShowWelcomePopup] = useState(false);
 
+    const [insights, setInsights] = useState<InterviewInsights | null>(null);
+    const [latestLoading, setLatestLoading] = useState(true);
+    const [latestError, setLatestError] = useState<string | null>(null);
+
     useEffect(() => {
         if (!user || !token) {
             setResumeLoading(false);
@@ -47,11 +68,13 @@ export default function DashboardPage() {
                 if (response.ok) {
                     const data = await response.json();
                     setResumeData(data);
+                    setShowWelcomePopup(false);
                 } else if (response.status === 401) {
                     // Token has expired or is invalid
                     logout();
                 } else if (response.status === 404) {
                     // No resume found, show the welcome popup
+                    setResumeData(null);
                     setShowWelcomePopup(true);
                 } else {
                     console.error("Failed to fetch resume:", await response.text());
@@ -64,6 +87,46 @@ export default function DashboardPage() {
         };
 
         fetchResumeData();
+    }, [user, token, logout]);
+
+    useEffect(() => {
+        if (!user || !token) {
+            setLatestLoading(false);
+            return;
+        }
+
+        const fetchLatestScore = async () => {
+            try {
+                const response = await fetch("http://localhost:8000/api/interviews/recent?limit=50", {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                    cache: "no-store",
+                });
+
+                if (response.status === 401) {
+                    logout();
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error("Failed to fetch latest interview score");
+                }
+
+                const data: RecentInterviewRecord[] = await response.json();
+                setInsights(buildInterviewInsights(data));
+                setLatestError(null);
+            } catch (err) {
+                setLatestError(
+                    err instanceof Error ? err.message : "Error loading latest score"
+                );
+                setInsights(null);
+            } finally {
+                setLatestLoading(false);
+            }
+        };
+
+        fetchLatestScore();
     }, [user, token, logout]);
 
     if (authLoading || !user) {
@@ -79,15 +142,30 @@ export default function DashboardPage() {
         ? resumeData.skills.split(',').map(s => s.trim()).filter(Boolean)
         : [];
 
+    const latestScore = insights?.latestScore ?? null;
+    const latestRole = insights?.latestRole ?? null;
+
+    const formatDuration = (seconds: number | null) => {
+        if (seconds === null) return "--";
+        const roundedSeconds = Math.round(seconds);
+        const mins = Math.floor(roundedSeconds / 60);
+        const secs = roundedSeconds % 60;
+        if (mins === 0) return `${secs}s`;
+        return `${mins}m ${secs}s`;
+    };
+
     return (
         <div className="mx-auto max-w-5xl space-y-8 animate-in fade-in duration-500">
-            <header className="flex items-end justify-between border-b border-border/40 pb-6">
+            <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between border-b border-border/40 pb-6">
                 <div>
                     <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                        Welcome back, {user.email.split('@')[0]}
+                        Welcome back,{" "}
+                        {user.first_name
+                            ? user.first_name
+                            : user.email.split("@")[0]}
                     </h1>
                     <p className="mt-2 text-muted-foreground">
-                        Here's a summary of your recent interview performance.
+                        Here&apos;s a summary of your recent interview performance.
                     </p>
                 </div>
                 <Button asChild className="rounded-xl px-6" size="lg">
@@ -172,7 +250,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Score Card - Remains Static for now */}
+                {/* Latest Score - now wired to analytics */}
                 <Card className="premium-card">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg">
@@ -181,51 +259,154 @@ export default function DashboardPage() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col items-center justify-center py-6">
-                        <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-[6px] border-primary/20">
-                            <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent border-r-transparent rotate-45" />
-                            <div className="flex flex-col items-center">
-                                <span className="text-4xl font-bold tracking-tighter text-foreground">72</span>
-                                <span className="text-sm font-medium text-muted-foreground">/ 100</span>
+                        {latestLoading ? (
+                            <div className="flex flex-col items-center gap-3 w-full">
+                                <div className="h-32 w-32 rounded-full bg-secondary/40 animate-pulse" />
+                                <div className="h-4 w-40 rounded bg-secondary/50 animate-pulse" />
                             </div>
-                        </div>
-                        <p className="mt-6 text-center text-sm font-medium text-muted-foreground">
-                            Above average for <span className="text-foreground">Backend Roles</span>
-                        </p>
+                        ) : latestError ? (
+                            <p className="text-sm text-destructive text-center">{latestError}</p>
+                        ) : latestScore === null ? (
+                            <p className="text-sm text-muted-foreground text-center">
+                                No completed interviews with scores yet. Start a session to see your latest score here.
+                            </p>
+                        ) : (
+                            <>
+                                <div className="relative flex h-32 w-32 items-center justify-center rounded-full border-[6px] border-primary/20">
+                                    <div className="absolute inset-0 rounded-full border-[6px] border-primary border-t-transparent border-r-transparent rotate-45" />
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-4xl font-bold tracking-tighter text-foreground">
+                                            {latestScore}
+                                        </span>
+                                        <span className="text-sm font-medium text-muted-foreground">/ 100</span>
+                                    </div>
+                                </div>
+                                <p className="mt-6 text-center text-sm font-medium text-muted-foreground">
+                                    {latestRole ? (
+                                        <>
+                                            Latest completed interview for{" "}
+                                            <span className="text-foreground capitalize">{latestRole}</span>
+                                        </>
+                                    ) : (
+                                        "Latest completed interview score."
+                                    )}
+                                </p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Focus Areas - Remains Static for now */}
-            <h2 className="mt-10 mb-4 text-xl font-semibold tracking-tight">Areas of Focus</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-                <Card className="premium-card border-l-4 border-l-green-500/80">
-                    <CardContent className="flex items-start gap-4 pt-6">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-green-500/10 text-green-600">
-                            <Code className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-foreground">Strong Areas</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                REST APIs, Database Indexing, and Python Core concepts are highly solid.
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+            <section className="space-y-4">
+                <div className="flex items-center justify-between border-b border-border/40 pb-3">
+                    <h2 className="text-lg font-semibold tracking-tight">Performance Snapshot</h2>
+                    <p className="text-xs text-muted-foreground">Derived from your latest 50 sessions</p>
+                </div>
 
-                <Card className="premium-card border-l-4 border-l-destructive/80">
-                    <CardContent className="flex items-start gap-4 pt-6">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                            <FileText className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-foreground">Needs Practice</h3>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                Distributed Systems and Caching strategies showed gaps in deep knowledge.
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <Card className="premium-card">
+                        <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        Completion Rate
+                                    </p>
+                                    {latestLoading ? (
+                                        <div className="mt-2 h-8 w-20 rounded bg-secondary/60 animate-pulse" />
+                                    ) : (
+                                        <p className="mt-2 text-3xl font-bold tracking-tight">
+                                            {insights?.completionRate != null ? `${insights.completionRate}%` : "--"}
+                                        </p>
+                                    )}
+                                </div>
+                                <ClipboardCheck className="h-5 w-5 text-primary" />
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {insights
+                                    ? `${insights.completedInterviews} of ${insights.totalInterviews} interviews completed`
+                                    : "No interview attempts yet"}
                             </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="premium-card">
+                        <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        Sessions This Week
+                                    </p>
+                                    {latestLoading ? (
+                                        <div className="mt-2 h-8 w-16 rounded bg-secondary/60 animate-pulse" />
+                                    ) : (
+                                        <p className="mt-2 text-3xl font-bold tracking-tight">
+                                            {insights?.thisWeekCount ?? 0}
+                                        </p>
+                                    )}
+                                </div>
+                                <CalendarDays className="h-5 w-5 text-primary" />
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {insights?.totalInterviews != null
+                                    ? `${insights.totalInterviews} total sessions recorded`
+                                    : "No sessions recorded yet"}
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="premium-card">
+                        <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        Avg Interview Time
+                                    </p>
+                                    {latestLoading ? (
+                                        <div className="mt-2 h-8 w-20 rounded bg-secondary/60 animate-pulse" />
+                                    ) : (
+                                        <p className="mt-2 text-3xl font-bold tracking-tight">
+                                            {formatDuration(insights?.averageTimeTakenSeconds ?? null)}
+                                        </p>
+                                    )}
+                                </div>
+                                <Clock3 className="h-5 w-5 text-primary" />
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {insights?.answerRate != null
+                                    ? `${insights.answerRate}% question coverage`
+                                    : "No answered questions yet"}
+                            </p>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="premium-card">
+                        <CardContent className="p-5">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                        Active-Day Streak
+                                    </p>
+                                    {latestLoading ? (
+                                        <div className="mt-2 h-8 w-16 rounded bg-secondary/60 animate-pulse" />
+                                    ) : (
+                                        <p className="mt-2 text-3xl font-bold tracking-tight">
+                                            {insights?.activeDayStreak ?? 0}d
+                                        </p>
+                                    )}
+                                </div>
+                                <Flame className="h-5 w-5 text-primary" />
+                            </div>
+                            <p className="mt-3 text-xs text-muted-foreground">
+                                {insights?.mostPracticedRole
+                                    ? `Most practiced: ${insights.mostPracticedRole.role} (${insights.mostPracticedRole.count})`
+                                    : "Build consistency with regular sessions"}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </section>
+
+            <GitHubHeatmapCard username={user.github_username} />
 
             {/* Welcome / First-Time Login Popup */}
             <Dialog open={showWelcomePopup} onOpenChange={setShowWelcomePopup}>
@@ -236,7 +417,7 @@ export default function DashboardPage() {
                             Welcome to AI Interviewer
                         </DialogTitle>
                         <DialogDescription className="pt-3 pb-2 text-base">
-                            You haven't uploaded a resume yet. Upload one to get interviews tailored to your experience.
+                            You haven&apos;t uploaded a resume yet. Upload one to get interviews tailored to your experience.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border/60 rounded-xl bg-secondary/10 mb-4">
@@ -260,3 +441,4 @@ export default function DashboardPage() {
         </div>
     );
 }
+
